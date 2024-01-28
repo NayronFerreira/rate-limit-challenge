@@ -3,23 +3,26 @@ package limiter
 import (
 	"context"
 	"log"
-	"strconv"
-	"time"
-
-	"github.com/go-redis/redis/v8"
 )
 
+type RateLimiterStore interface {
+	IncrementRequestCount(ctx context.Context, key string, isToken bool) error
+	IsRateLimitExceeded(ctx context.Context, key string, isToken bool) (bool, error)
+	BlockKey(ctx context.Context, key string) error
+	IsKeyBlocked(ctx context.Context, key string) (bool, error)
+}
+
 type Limiter struct {
-	RedisClient               *redis.Client
+	Store                     RateLimiterStore
 	IPMaxRequestsPerSecond    int
 	TokenMaxRequestsPerSecond int
 	LockDurationInSeconds     int
 	BlockDurationInSeconds    int
 }
 
-func NewLimiter(redisClient *redis.Client, tokenMaxRequestsPerSecond, ipMaxRequestsPerSecond, lockDurationSeconds, blockDurationSeconds int) *Limiter {
+func NewLimiter(store RateLimiterStore, tokenMaxRequestsPerSecond, ipMaxRequestsPerSecond, lockDurationSeconds, blockDurationSeconds int) *Limiter {
 	return &Limiter{
-		RedisClient:               redisClient,
+		Store:                     store,
 		IPMaxRequestsPerSecond:    ipMaxRequestsPerSecond,
 		TokenMaxRequestsPerSecond: tokenMaxRequestsPerSecond,
 		LockDurationInSeconds:     lockDurationSeconds,
@@ -27,10 +30,8 @@ func NewLimiter(redisClient *redis.Client, tokenMaxRequestsPerSecond, ipMaxReque
 	}
 }
 
-// CheckRateLimit verifica se uma requisição excede o limite de taxa configurado para um determinado IP ou token.
 func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) (bool, error) {
-
-	isBlocked, err := l.IsKeyBlocked(ctx, key)
+	isBlocked, err := l.Store.IsKeyBlocked(ctx, key)
 	if err != nil {
 		return false, err
 	}
@@ -39,67 +40,24 @@ func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) 
 		return true, nil
 	}
 
-	redisKey := "limiter:" + key
-
-	now := time.Now().Unix() // Obtém o tempo agora em segundos desde a epoch
-	minScore := "-inf"
-
-	// Remova os membros do conjunto cujo score é menor que o tempo agora
-	_, err = l.RedisClient.ZRemRangeByScore(ctx, redisKey, minScore, strconv.FormatInt(now, 10)).Result()
-	if err != nil && err != redis.Nil {
-		return false, err
-	}
-
-	// Verifique o número de membros restantes no conjunto
-	cmd := l.RedisClient.ZCard(ctx, redisKey)
-	count, err := cmd.Result()
-	if err != nil && err != redis.Nil {
-		return false, err
-	}
-
-	var reqRateLimit int
-	if isToken {
-		reqRateLimit = l.TokenMaxRequestsPerSecond
-	} else {
-		reqRateLimit = l.IPMaxRequestsPerSecond
-	}
-
-	if count < int64(reqRateLimit) {
-
-		log.Printf("key: %s count: %d, reqLimit: %d \n", key, count, reqRateLimit)
-		expireTime := now + int64(l.LockDurationInSeconds)
-
-		_, err := l.RedisClient.ZAdd(ctx, redisKey, &redis.Z{
-			Score:  float64(expireTime),
-			Member: time.Now().Format(time.RFC3339Nano),
-		}).Result()
-		if err != nil {
-			return false, err
-		}
-
-		return false, nil
-	}
-
-	if err = l.BlockKey(ctx, key); err != nil {
-		return false, err
-	}
-	log.Printf("key blocked: %s count: %d, reqLimit: %d \n", key, count, reqRateLimit)
-
-	return true, nil
-}
-
-// BlockKey bloqueia uma determinada chave.
-func (l *Limiter) BlockKey(ctx context.Context, key string) error {
-	// Adiciona a chave ao conjunto de chaves bloqueadas com tempo de expiração.
-	return l.RedisClient.SetEX(ctx, "block:"+key, "", time.Second*time.Duration(l.BlockDurationInSeconds)).Err()
-}
-
-// IsKeyBlocked verifica se uma determinada chave está bloqueada.
-func (l *Limiter) IsKeyBlocked(ctx context.Context, key string) (bool, error) {
-	// Verifica se a chave já está no conjunto de chaves bloqueadas.
-	exists, err := l.RedisClient.Exists(ctx, "block:"+key).Result()
+	err = l.Store.IncrementRequestCount(ctx, key, isToken)
 	if err != nil {
 		return false, err
 	}
-	return exists == 1, nil
+
+	isExceeded, err := l.Store.IsRateLimitExceeded(ctx, key, isToken)
+	if err != nil {
+		return false, err
+	}
+
+	if isExceeded {
+		err = l.Store.BlockKey(ctx, key)
+		if err != nil {
+			return false, err
+		}
+		log.Printf("key blocked: %s \n", key)
+		return true, nil
+	}
+
+	return false, nil
 }

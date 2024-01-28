@@ -70,8 +70,12 @@ func main() {
 		DB:       0,        // use default DB
 	})
 
+	redisStore := &limiter.RedisStore{
+		Client: redisClient,
+	}
+
 	// Crie uma instância do Limiter com o cliente Redis
-	rateLimiter := limiter.NewLimiter(redisClient, tokenMaxRequestsPerSecond, ipMaxRequestsPerSecond, lockDurationSeconds, blockDurationSeconds)
+	rateLimiter := limiter.NewLimiter(redisStore, tokenMaxRequestsPerSecond, ipMaxRequestsPerSecond, lockDurationSeconds, blockDurationSeconds)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Requisição bem-sucedida!")
