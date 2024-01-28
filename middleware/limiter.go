@@ -20,7 +20,7 @@ func RateLimitMiddleware(next http.Handler, limiter *limiter.Limiter) http.Handl
 			}
 
 			if isBlocked {
-				http.Error(w, "Your Token is temporarily blocked for exceeding the request limit.", http.StatusTooManyRequests)
+				http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame.", http.StatusTooManyRequests)
 				return
 			}
 
@@ -34,7 +34,7 @@ func RateLimitMiddleware(next http.Handler, limiter *limiter.Limiter) http.Handl
 			}
 
 			if isBlocked {
-				http.Error(w, "Your IP is temporarily blocked for exceeding the request limit.", http.StatusTooManyRequests)
+				http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame.", http.StatusTooManyRequests)
 				return
 			}
 
