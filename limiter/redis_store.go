@@ -67,3 +67,39 @@ func (s *RedisStore) IsKeyBlocked(ctx context.Context, key string) (bool, error)
 
 	return exists == 1, nil
 }
+
+func (s *RedisStore) SetTokenRateLimit(ctx context.Context, token string, maxRequestsPerSecond int, lockDurationSeconds int) error {
+	// Chave no Redis para armazenar os dados do token
+	tokenKey := "token:" + token
+
+	// Armazenar o limite de taxa e a duração de bloqueio do token no Redis
+	pipe := s.Client.TxPipeline()
+	pipe.HSet(ctx, tokenKey, "maxRequestsPerSecond", maxRequestsPerSecond)
+	pipe.HSet(ctx, tokenKey, "lockDurationSeconds", lockDurationSeconds)
+	_, err := pipe.Exec(ctx)
+
+	return err
+}
+
+func (s *RedisStore) GetTokenRateLimit(ctx context.Context, token string) (int, int, error) {
+	// Chave no Redis que armazena os dados do token
+	tokenKey := "token:" + token
+
+	// Obter o limite de taxa e a duração de bloqueio do token do Redis
+	result, err := s.Client.HMGet(ctx, tokenKey, "maxRequestsPerSecond", "lockDurationSeconds").Result()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	maxRequestsPerSecond, err := strconv.Atoi(result[0].(string))
+	if err != nil {
+		return 0, 0, err
+	}
+
+	lockDurationSeconds, err := strconv.Atoi(result[1].(string))
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return maxRequestsPerSecond, lockDurationSeconds, nil
+}

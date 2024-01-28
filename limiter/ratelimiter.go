@@ -10,6 +10,8 @@ type RateLimiterStore interface {
 	IsRateLimitExceeded(ctx context.Context, key string, isToken bool) (bool, error)
 	BlockKey(ctx context.Context, key string) error
 	IsKeyBlocked(ctx context.Context, key string) (bool, error)
+	SetTokenRateLimit(ctx context.Context, token string, maxRequestsPerSecond int, lockDurationSeconds int) error
+	GetTokenRateLimit(ctx context.Context, token string) (int, int, error)
 }
 
 type Limiter struct {
