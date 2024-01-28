@@ -74,15 +74,6 @@ func main() {
 		Client: redisClient,
 	}
 
-	//TODO: Tokens com limites de taxa personalizados
-	if err = redisStore.SetTokenRateLimit(context.Background(), "dfweuihrfi8943gj902ghu94jf0wj", 10, 5); err != nil {
-		log.Fatal("Erro ao configurar o limite de taxa para token1:", err)
-	}
-
-	if err = redisStore.SetTokenRateLimit(context.Background(), "fjvre3489g5uj93w2rtguj34r903uj", 15, 5); err != nil {
-		log.Fatal("Erro ao configurar o limite de taxa para token2:", err)
-	}
-
 	// Crie uma instância do Limiter com o cliente Redis
 	rateLimiter := limiter.NewLimiter(redisStore, tokenMaxRequestsPerSecond, ipMaxRequestsPerSecond, lockDurationSeconds, blockDurationSeconds)
 
