@@ -77,6 +77,11 @@ func main() {
 		fmt.Fprintf(w, "Requisição bem-sucedida!")
 	})
 
+	err = rateLimiter.RegisterToken(context.Background(), "myToken", 20, 3, 30)
+	if err != nil {
+		log.Fatal("Erro ao registrar o token:", err)
+	}
+
 	// Crie um middleware RateLimitMiddleware com o Limiter
 	rateLimitMiddleware := middleware.RateLimitMiddleware(http.DefaultServeMux, rateLimiter)
 
