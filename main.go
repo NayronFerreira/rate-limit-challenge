@@ -88,12 +88,12 @@ func main() {
 		log.Fatal("Erro ao converter LOCK_DURATION_SECONDS para int:", err)
 	}
 
-	tokenConfig := map[string]map[string]int64{
-		"TOKEN_1": {"TOKEN_1_MAX_REQUESTS_PER_SECOND": int64(token1MaxRequestsPerSecond)},
-		"TOKEN_2": {"TOKEN_2_MAX_REQUESTS_PER_SECOND": int64(token2MaxRequestsPerSecond)},
-		"TOKEN_3": {"TOKEN_3_MAX_REQUESTS_PER_SECOND": int64(token3MaxRequestsPerSecond)},
-		"TOKEN_4": {"TOKEN_4_MAX_REQUESTS_PER_SECOND": int64(token4MaxRequestsPerSecond)},
-		"TOKEN_5": {"TOKEN_5_MAX_REQUESTS_PER_SECOND": int64(token5MaxRequestsPerSecond)},
+	tokenConfig := map[string]int64{
+		"TOKEN_1": int64(token1MaxRequestsPerSecond),
+		"TOKEN_2": int64(token2MaxRequestsPerSecond),
+		"TOKEN_3": int64(token3MaxRequestsPerSecond),
+		"TOKEN_4": int64(token4MaxRequestsPerSecond),
+		"TOKEN_5": int64(token5MaxRequestsPerSecond),
 	}
 
 	// Crie um cliente Redis (substitua estas linhas com a configuração real do seu cliente Redis)

@@ -14,13 +14,13 @@ import (
 
 type Limiter struct {
 	RedisClient            *redis.Client
-	ConfigToken            map[string]map[string]int64
+	ConfigToken            map[string]int64
 	lockDurationSeconds    int64
 	blockDurationSeconds   int64
 	ipMaxRequestsPerSecond int64
 }
 
-func NewLimiter(redisClient *redis.Client, configToken map[string]map[string]int64, lockDurationSeconds, blockDurationSeconds, ipMaxRequestsPerSecond int64) *Limiter {
+func NewLimiter(redisClient *redis.Client, configToken map[string]int64, lockDurationSeconds, blockDurationSeconds, ipMaxRequestsPerSecond int64) *Limiter {
 	limiter := &Limiter{
 		RedisClient:            redisClient,
 		ConfigToken:            configToken,
@@ -74,16 +74,15 @@ func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) 
 		}
 
 		type TokenConfig struct {
-			Token string `json:"token"`
-			Key   string `json:"key"`
-			Value int    `json:"value"`
+			Token    string `json:"token"`
+			LimitReq int64  `json:"limitReq"`
 		}
 
 		var tokenConfig TokenConfig
 		if err = json.Unmarshal([]byte(tokenConfigStr), &tokenConfig); err != nil {
 			return false, err
 		}
-		reqRateLimit = tokenConfig.Value
+		reqRateLimit = int(tokenConfig.LimitReq)
 
 	} else {
 		reqRateLimit = int(l.ipMaxRequestsPerSecond)
@@ -131,29 +130,23 @@ func (l *Limiter) IsKeyBlocked(ctx context.Context, key string) (bool, error) {
 func (l *Limiter) RegisterToken(ctx context.Context) error {
 	// Crie uma estrutura para armazenar as configurações do token
 
-	for token, config := range l.ConfigToken {
+	for token, limitReq := range l.ConfigToken {
 
-		for key, value := range config {
+		data := struct {
+			Token    string `json:"token"`
+			LimitReq int64  `json:"limitReq"`
+		}{
+			Token:    token,
+			LimitReq: limitReq,
+		}
 
-			data := struct {
-				Token     string `json:"token"`
-				KeyConfig string `json:"key"`
-				Value     int64  `json:"value"`
-			}{
-				Token:     token,
-				KeyConfig: key,
-				Value:     value,
-			}
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
 
-			jsonData, err := json.Marshal(data)
-			if err != nil {
-				return err
-			}
-
-			if err = l.RedisClient.Set(ctx, token, jsonData, time.Hour).Err(); err != nil {
-				return err
-			}
-
+		if err = l.RedisClient.Set(ctx, token, jsonData, time.Hour).Err(); err != nil {
+			return err
 		}
 
 		storedValue, err := l.RedisClient.Get(ctx, token).Result()
