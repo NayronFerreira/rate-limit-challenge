@@ -34,10 +34,16 @@ func main() {
 
 	// Obtenha as variáveis de ambiente configuradas
 	ipMaxRequestsPerSecondStr := os.Getenv("IP_MAX_REQUESTS_PER_SECOND")
-	tokenMaxRequestsPerSecondStr := os.Getenv("TOKEN_MAX_REQUESTS_PER_SECOND")
+
+	token1MaxRequestsPerSecondStr := os.Getenv("TOKEN_1_MAX_REQUESTS_PER_SECOND")
+	token2MaxRequestsPerSecondStr := os.Getenv("TOKEN_2_MAX_REQUESTS_PER_SECOND")
+	token3MaxRequestsPerSecondStr := os.Getenv("TOKEN_3_MAX_REQUESTS_PER_SECOND")
+	token4MaxRequestsPerSecondStr := os.Getenv("TOKEN_4_MAX_REQUESTS_PER_SECOND")
+	token5MaxRequestsPerSecondStr := os.Getenv("TOKEN_5_MAX_REQUESTS_PER_SECOND")
 
 	lockDurationStr := os.Getenv("LOCK_DURATION_SECONDS")
 	blockDurationStr := os.Getenv("BLOCK_DURATION_SECONDS")
+
 	webPort := os.Getenv("APP_WEB_PORT")
 	redisURL := os.Getenv("REDIS_URL")
 
@@ -47,21 +53,48 @@ func main() {
 		log.Fatal("Erro ao converter MAX_REQUESTS_PER_SECOND para int:", err)
 	}
 
-	tokenMaxRequestsPerSecond, err := strconv.Atoi(tokenMaxRequestsPerSecondStr)
+	token1MaxRequestsPerSecond, err := strconv.Atoi(token1MaxRequestsPerSecondStr)
 	if err != nil {
-		log.Fatal("Erro ao converter MAX_REQUESTS_PER_SECOND para int:", err)
+		log.Fatal("Erro ao converter TOKEN_1_MAX_REQUESTS_PER_SECOND para int:", err)
+	}
+
+	token2MaxRequestsPerSecond, err := strconv.Atoi(token2MaxRequestsPerSecondStr)
+	if err != nil {
+		log.Fatal("Erro ao converter TOKEN_2_MAX_REQUESTS_PER_SECOND para int:", err)
+	}
+
+	token3MaxRequestsPerSecond, err := strconv.Atoi(token3MaxRequestsPerSecondStr)
+	if err != nil {
+		log.Fatal("Erro ao converter TOKEN_3_MAX_REQUESTS_PER_SECOND para int:", err)
+	}
+
+	token4MaxRequestsPerSecond, err := strconv.Atoi(token4MaxRequestsPerSecondStr)
+	if err != nil {
+		log.Fatal("Erro ao converter TOKEN_4_MAX_REQUESTS_PER_SECOND para int:", err)
+	}
+
+	token5MaxRequestsPerSecond, err := strconv.Atoi(token5MaxRequestsPerSecondStr)
+	if err != nil {
+		log.Fatal("Erro ao converter TOKEN_5_MAX_REQUESTS_PER_SECOND para int:", err)
 	}
 
 	lockDurationSeconds, err := strconv.Atoi(lockDurationStr)
 	if err != nil {
 		log.Fatal("Erro ao converter LOCK_DURATION_SECONDS para int:", err)
 	}
+
 	blockDurationSeconds, err := strconv.Atoi(blockDurationStr)
 	if err != nil {
 		log.Fatal("Erro ao converter LOCK_DURATION_SECONDS para int:", err)
 	}
 
-	log.Println("lockDurationSeconds= ", lockDurationSeconds)
+	tokenConfig := map[string]map[string]int64{
+		"TOKEN_1": {"TOKEN_1_MAX_REQUESTS_PER_SECOND": int64(token1MaxRequestsPerSecond)},
+		"TOKEN_2": {"TOKEN_2_MAX_REQUESTS_PER_SECOND": int64(token2MaxRequestsPerSecond)},
+		"TOKEN_3": {"TOKEN_3_MAX_REQUESTS_PER_SECOND": int64(token3MaxRequestsPerSecond)},
+		"TOKEN_4": {"TOKEN_4_MAX_REQUESTS_PER_SECOND": int64(token4MaxRequestsPerSecond)},
+		"TOKEN_5": {"TOKEN_5_MAX_REQUESTS_PER_SECOND": int64(token5MaxRequestsPerSecond)},
+	}
 
 	// Crie um cliente Redis (substitua estas linhas com a configuração real do seu cliente Redis)
 	redisClient := redis.NewClient(&redis.Options{
@@ -71,14 +104,13 @@ func main() {
 	})
 
 	// Crie uma instância do Limiter com o cliente Redis
-	rateLimiter := limiter.NewLimiter(redisClient, tokenMaxRequestsPerSecond, ipMaxRequestsPerSecond, lockDurationSeconds, blockDurationSeconds)
+	rateLimiter := limiter.NewLimiter(redisClient, tokenConfig, int64(lockDurationSeconds), int64(blockDurationSeconds), int64(ipMaxRequestsPerSecond))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Requisição bem-sucedida!")
 	})
 
-	err = rateLimiter.RegisterToken(context.Background(), "myToken", 20, 3, 30)
-	if err != nil {
+	if err = rateLimiter.RegisterToken(context.Background()); err != nil {
 		log.Fatal("Erro ao registrar o token:", err)
 	}
 

@@ -3,6 +3,7 @@ package limiter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -12,21 +13,22 @@ import (
 )
 
 type Limiter struct {
-	RedisClient               *redis.Client
-	IPMaxRequestsPerSecond    int
-	TokenMaxRequestsPerSecond int
-	LockDurationInSeconds     int
-	BlockDurationInSeconds    int
+	RedisClient            *redis.Client
+	ConfigToken            map[string]map[string]int64
+	lockDurationSeconds    int64
+	blockDurationSeconds   int64
+	ipMaxRequestsPerSecond int64
 }
 
-func NewLimiter(redisClient *redis.Client, tokenMaxRequestsPerSecond, ipMaxRequestsPerSecond, lockDurationSeconds, blockDurationSeconds int) *Limiter {
-	return &Limiter{
-		RedisClient:               redisClient,
-		IPMaxRequestsPerSecond:    ipMaxRequestsPerSecond,
-		TokenMaxRequestsPerSecond: tokenMaxRequestsPerSecond,
-		LockDurationInSeconds:     lockDurationSeconds,
-		BlockDurationInSeconds:    blockDurationSeconds,
+func NewLimiter(redisClient *redis.Client, configToken map[string]map[string]int64, lockDurationSeconds, blockDurationSeconds, ipMaxRequestsPerSecond int64) *Limiter {
+	limiter := &Limiter{
+		RedisClient:            redisClient,
+		ConfigToken:            configToken,
+		lockDurationSeconds:    lockDurationSeconds,
+		blockDurationSeconds:   blockDurationSeconds,
+		ipMaxRequestsPerSecond: ipMaxRequestsPerSecond,
 	}
+	return limiter
 }
 
 // CheckRateLimit verifica se uma requisição excede o limite de taxa configurado para um determinado IP ou token.
@@ -68,26 +70,28 @@ func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) 
 		tokenConfigStr, err := l.RedisClient.Get(ctx, key).Result()
 		if err == redis.Nil {
 			// Use as configurações padrão se não houver configurações personalizadas
-			reqRateLimit = l.TokenMaxRequestsPerSecond
-
-		} else if err != nil {
-			return false, err
-		} else {
-			// Use as configurações personalizadas
-			var tokenConfig map[string]int
-			err = json.Unmarshal([]byte(tokenConfigStr), &tokenConfig)
-			if err != nil {
-				return false, err
-			}
-			reqRateLimit = tokenConfig["maxRequestsPerSecond"]
+			return false, errors.New("token não encontrado")
 		}
+
+		type TokenConfig struct {
+			Token string `json:"token"`
+			Key   string `json:"key"`
+			Value int    `json:"value"`
+		}
+
+		var tokenConfig TokenConfig
+		if err = json.Unmarshal([]byte(tokenConfigStr), &tokenConfig); err != nil {
+			return false, err
+		}
+		reqRateLimit = tokenConfig.Value
+
 	} else {
-		reqRateLimit = l.IPMaxRequestsPerSecond
+		reqRateLimit = int(l.ipMaxRequestsPerSecond)
 	}
 
 	if count < int64(reqRateLimit) {
 		log.Printf("key: %s count: %d, reqLimit: %d \n", key, count, reqRateLimit)
-		expireTime := now + int64(l.LockDurationInSeconds)
+		expireTime := now + int64(l.lockDurationSeconds)
 
 		_, err := l.RedisClient.ZAdd(ctx, redisKey, &redis.Z{
 			Score:  float64(expireTime),
@@ -111,7 +115,7 @@ func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) 
 // BlockKey bloqueia uma determinada chave.
 func (l *Limiter) BlockKey(ctx context.Context, key string) error {
 	// Adiciona a chave ao conjunto de chaves bloqueadas com tempo de expiração.
-	return l.RedisClient.SetEX(ctx, "block:"+key, "", time.Second*time.Duration(l.BlockDurationInSeconds)).Err()
+	return l.RedisClient.SetEX(ctx, "block:"+key, "", time.Second*time.Duration(l.blockDurationSeconds)).Err()
 }
 
 // IsKeyBlocked verifica se uma determinada chave está bloqueada.
@@ -124,30 +128,40 @@ func (l *Limiter) IsKeyBlocked(ctx context.Context, key string) (bool, error) {
 	return exists == 1, nil
 }
 
-func (l *Limiter) RegisterToken(ctx context.Context, token string, maxRequestsPerSecond int, lockDurationSeconds int, blockDurationSeconds int) error {
+func (l *Limiter) RegisterToken(ctx context.Context) error {
 	// Crie uma estrutura para armazenar as configurações do token
 
-	tokenConfig := map[string]interface{}{
-		"maxRequestsPerSecond": maxRequestsPerSecond,
-		"lockDurationSeconds":  lockDurationSeconds,
-		"blockDurationSeconds": blockDurationSeconds,
-	}
+	for token, config := range l.ConfigToken {
 
-	jsonData, err := json.Marshal(tokenConfig)
-	if err != nil {
-		return err
-	}
+		for key, value := range config {
 
-	err = l.RedisClient.Set(ctx, "token:"+token, jsonData, time.Hour).Err()
-	if err != nil {
-		return err
-	}
+			data := struct {
+				Token     string `json:"token"`
+				KeyConfig string `json:"key"`
+				Value     int64  `json:"value"`
+			}{
+				Token:     token,
+				KeyConfig: key,
+				Value:     value,
+			}
 
-	storedValue, err := l.RedisClient.Get(ctx, "token:"+token).Result()
-	if err != nil {
-		return err
-	}
-	fmt.Println("storedValue: ", storedValue)
+			jsonData, err := json.Marshal(data)
+			if err != nil {
+				return err
+			}
 
+			if err = l.RedisClient.Set(ctx, token, jsonData, time.Hour).Err(); err != nil {
+				return err
+			}
+
+		}
+
+		storedValue, err := l.RedisClient.Get(ctx, token).Result()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("storedValue: ", storedValue)
+	}
 	return nil
 }

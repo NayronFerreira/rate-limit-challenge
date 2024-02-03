@@ -13,7 +13,7 @@ func RateLimitMiddleware(next http.Handler, limiter *limiter.Limiter) http.Handl
 
 		if token != "" {
 			// Se um token de API for fornecido, verifique a taxa de solicitações para o token
-			isBlocked, err := limiter.CheckRateLimit(r.Context(), "token:"+token, true)
+			isBlocked, err := limiter.CheckRateLimit(r.Context(), token, true)
 			if err != nil {
 				http.Error(w, "Internal Server Error: "+err.Error(), http.StatusInternalServerError)
 				return
