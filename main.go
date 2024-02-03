@@ -26,13 +26,12 @@ func loadEnv() error {
 }
 
 func main() {
-	// Carregue as variáveis de ambiente do arquivo .env
+
 	err := loadEnv()
 	if err != nil {
 		log.Fatal("Erro ao carregar as variáveis de ambiente:", err)
 	}
 
-	// Obtenha as variáveis de ambiente configuradas
 	ipMaxRequestsPerSecondStr := os.Getenv("IP_MAX_REQUESTS_PER_SECOND")
 
 	token1MaxRequestsPerSecondStr := os.Getenv("TOKEN_1_MAX_REQUESTS_PER_SECOND")
@@ -47,7 +46,6 @@ func main() {
 	webPort := os.Getenv("APP_WEB_PORT")
 	redisURL := os.Getenv("REDIS_URL")
 
-	// Converta as variáveis de ambiente para os tipos apropriados
 	ipMaxRequestsPerSecond, err := strconv.Atoi(ipMaxRequestsPerSecondStr)
 	if err != nil {
 		log.Fatal("Erro ao converter MAX_REQUESTS_PER_SECOND para int:", err)
@@ -96,14 +94,12 @@ func main() {
 		"TOKEN_5": int64(token5MaxRequestsPerSecond),
 	}
 
-	// Crie um cliente Redis (substitua estas linhas com a configuração real do seu cliente Redis)
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisURL, //"localhost:6379"
-		Password: "",       // no password set
-		DB:       0,        // use default DB
+		Password: "",
+		DB:       0,
 	})
 
-	// Crie uma instância do Limiter com o cliente Redis
 	rateLimiter := limiter.NewLimiter(redisClient, tokenConfig, int64(lockDurationSeconds), int64(blockDurationSeconds), int64(ipMaxRequestsPerSecond))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -69,7 +69,6 @@ func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) 
 
 		tokenConfigStr, err := l.RedisClient.Get(ctx, key).Result()
 		if err == redis.Nil {
-			// Use as configurações padrão se não houver configurações personalizadas
 			return false, errors.New("token não encontrado")
 		}
 
@@ -111,15 +110,11 @@ func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) 
 	return true, nil
 }
 
-// BlockKey bloqueia uma determinada chave.
 func (l *Limiter) BlockKey(ctx context.Context, key string) error {
-	// Adiciona a chave ao conjunto de chaves bloqueadas com tempo de expiração.
 	return l.RedisClient.SetEX(ctx, "block:"+key, "", time.Second*time.Duration(l.blockDurationSeconds)).Err()
 }
 
-// IsKeyBlocked verifica se uma determinada chave está bloqueada.
 func (l *Limiter) IsKeyBlocked(ctx context.Context, key string) (bool, error) {
-	// Verifica se a chave já está no conjunto de chaves bloqueadas.
 	exists, err := l.RedisClient.Exists(ctx, "block:"+key).Result()
 	if err != nil {
 		return false, err
@@ -128,7 +123,6 @@ func (l *Limiter) IsKeyBlocked(ctx context.Context, key string) (bool, error) {
 }
 
 func (l *Limiter) RegisterToken(ctx context.Context) error {
-	// Crie uma estrutura para armazenar as configurações do token
 
 	for token, limitReq := range l.ConfigToken {
 
@@ -145,7 +139,7 @@ func (l *Limiter) RegisterToken(ctx context.Context) error {
 			return err
 		}
 
-		if err = l.RedisClient.Set(ctx, token, jsonData, time.Hour).Err(); err != nil {
+		if err = l.RedisClient.Set(ctx, token, jsonData, 0).Err(); err != nil {
 			return err
 		}
 

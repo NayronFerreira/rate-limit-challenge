@@ -12,7 +12,6 @@ func RateLimitMiddleware(next http.Handler, limiter *limiter.Limiter) http.Handl
 		token := r.Header.Get("API_KEY")
 
 		if token != "" {
-			// Se um token de API for fornecido, verifique a taxa de solicitações para o token
 			isBlocked, err := limiter.CheckRateLimit(r.Context(), token, true)
 			if err != nil {
 				http.Error(w, "Internal Server Error: "+err.Error(), http.StatusInternalServerError)
@@ -25,7 +24,7 @@ func RateLimitMiddleware(next http.Handler, limiter *limiter.Limiter) http.Handl
 			}
 
 		} else {
-			// Se nenhum token de API for fornecido, verifique a taxa de solicitações para o endereço IP
+
 			ip := strings.Split(r.RemoteAddr, ":")[0]
 			isBlocked, err := limiter.CheckRateLimit(r.Context(), "ip:"+ip, false)
 			if err != nil {
