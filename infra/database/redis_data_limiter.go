@@ -4,8 +4,17 @@ import (
 	"context"
 	"time"
 
+	"github.com/NayronFerreira/rate-limit-challenge/config"
 	"github.com/go-redis/redis/v8"
 )
+
+func NewRedisClient(config *config.Config) *redis.Client {
+	return redis.NewClient(&redis.Options{
+		Addr:     config.RedisURL,
+		Password: "",
+		DB:       0,
+	})
+}
 
 type RedisDataLimiter struct {
 	client *redis.Client

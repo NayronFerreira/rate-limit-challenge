@@ -5,16 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/NayronFerreira/rate-limit-challenge/config"
-	database "github.com/NayronFerreira/rate-limit-challenge/infra/database/impl"
-	"github.com/NayronFerreira/rate-limit-challenge/middleware"
+	"github.com/NayronFerreira/rate-limit-challenge/infra/database"
+	server "github.com/NayronFerreira/rate-limit-challenge/infra/web"
+	"github.com/NayronFerreira/rate-limit-challenge/infra/web/middleware"
 	"github.com/NayronFerreira/rate-limit-challenge/ratelimiter"
-	"github.com/go-redis/redis/v8"
 )
 
 func main() {
@@ -23,11 +19,7 @@ func main() {
 		log.Fatal("Error loading config:", err)
 	}
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     config.RedisURL,
-		Password: "",
-		DB:       0,
-	})
+	redisClient := database.NewRedisClient(config)
 
 	dbRedis := database.NewRedisDataLimiter(redisClient)
 
@@ -43,29 +35,14 @@ func main() {
 
 	rateLimitMiddleware := middleware.RateLimitMiddleware(http.DefaultServeMux, rateLimiter)
 
-	server := &http.Server{
-		Addr:    ":" + config.WebPort,
-		Handler: rateLimitMiddleware,
-	}
+	srv := server.New(config.WebPort, rateLimitMiddleware)
 
 	go func() {
 		log.Println("Servidor HTTP iniciado na porta:", config.WebPort)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal("Erro ao iniciar o servidor:", err)
 		}
 	}()
 
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
-	<-signalChan
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatal("Erro ao encerrar o servidor:", err)
-	}
-
-	log.Println("Servidor encerrado")
+	server.WaitForShutdown(srv)
 }
