@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/NayronFerreira/rate-limit-challenge/limiter"
 	"github.com/NayronFerreira/rate-limit-challenge/middleware"
+	limiter "github.com/NayronFerreira/rate-limit-challenge/ratelimiter"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 )

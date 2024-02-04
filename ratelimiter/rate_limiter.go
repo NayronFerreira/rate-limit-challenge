@@ -12,7 +12,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-type Limiter struct {
+type RateLimiter struct {
 	RedisClient            *redis.Client
 	ConfigToken            map[string]int64
 	lockDurationSeconds    int64
@@ -20,8 +20,8 @@ type Limiter struct {
 	ipMaxRequestsPerSecond int64
 }
 
-func NewLimiter(redisClient *redis.Client, configToken map[string]int64, lockDurationSeconds, blockDurationSeconds, ipMaxRequestsPerSecond int64) *Limiter {
-	limiter := &Limiter{
+func NewLimiter(redisClient *redis.Client, configToken map[string]int64, lockDurationSeconds, blockDurationSeconds, ipMaxRequestsPerSecond int64) *RateLimiter {
+	limiter := &RateLimiter{
 		RedisClient:            redisClient,
 		ConfigToken:            configToken,
 		lockDurationSeconds:    lockDurationSeconds,
@@ -32,7 +32,7 @@ func NewLimiter(redisClient *redis.Client, configToken map[string]int64, lockDur
 }
 
 // CheckRateLimit verifica se uma requisição excede o limite de taxa configurado para um determinado IP ou token.
-func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) (bool, error) {
+func (l *RateLimiter) CheckRateLimit(ctx context.Context, key string, isToken bool) (bool, error) {
 	isBlocked, err := l.IsKeyBlocked(ctx, key)
 	if err != nil {
 		return false, err
@@ -64,7 +64,7 @@ func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) 
 
 	if isToken {
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10000*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		tokenConfigStr, err := l.RedisClient.Get(ctx, key).Result()
@@ -110,11 +110,11 @@ func (l *Limiter) CheckRateLimit(ctx context.Context, key string, isToken bool) 
 	return true, nil
 }
 
-func (l *Limiter) BlockKey(ctx context.Context, key string) error {
+func (l *RateLimiter) BlockKey(ctx context.Context, key string) error {
 	return l.RedisClient.SetEX(ctx, "block:"+key, "", time.Second*time.Duration(l.blockDurationSeconds)).Err()
 }
 
-func (l *Limiter) IsKeyBlocked(ctx context.Context, key string) (bool, error) {
+func (l *RateLimiter) IsKeyBlocked(ctx context.Context, key string) (bool, error) {
 	exists, err := l.RedisClient.Exists(ctx, "block:"+key).Result()
 	if err != nil {
 		return false, err
@@ -122,7 +122,12 @@ func (l *Limiter) IsKeyBlocked(ctx context.Context, key string) (bool, error) {
 	return exists == 1, nil
 }
 
-func (l *Limiter) RegisterToken(ctx context.Context) error {
+func (r *RateLimiter) TokenExists(token string) bool {
+	_, exists := r.ConfigToken[token]
+	return exists
+}
+
+func (l *RateLimiter) RegisterToken(ctx context.Context) error {
 
 	for token, limitReq := range l.ConfigToken {
 
