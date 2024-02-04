@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/NayronFerreira/rate-limit-challenge/config"
 	"github.com/NayronFerreira/rate-limit-challenge/infra/database"
 	server "github.com/NayronFerreira/rate-limit-challenge/infra/web"
+	"github.com/NayronFerreira/rate-limit-challenge/infra/web/handler"
 	"github.com/NayronFerreira/rate-limit-challenge/infra/web/middleware"
 	"github.com/NayronFerreira/rate-limit-challenge/ratelimiter"
 )
@@ -25,17 +25,15 @@ func main() {
 
 	rateLimiter := ratelimiter.NewLimiter(dbRedis, config.TokenMaxRequestsPerSecond, int64(config.LockDurationSeconds), int64(config.BlockDurationSeconds), int64(config.IPMaxRequestsPerSecond))
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Requisição bem-sucedida!")
-	})
-
-	if err = rateLimiter.RegisterToken(context.Background()); err != nil {
+	if err = rateLimiter.RegisterPersonalizedTokens(context.Background()); err != nil {
 		log.Fatal("Erro ao registrar o token:", err)
 	}
 
 	rateLimitMiddleware := middleware.RateLimitMiddleware(http.DefaultServeMux, rateLimiter)
 
 	srv := server.New(config.WebPort, rateLimitMiddleware)
+
+	http.HandleFunc("/", handler.RootHandler)
 
 	go func() {
 		log.Println("Servidor HTTP iniciado na porta:", config.WebPort)

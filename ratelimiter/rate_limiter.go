@@ -9,18 +9,19 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/NayronFerreira/rate-limit-challenge/ratelimiter/contract_db"
 	"github.com/go-redis/redis/v8"
 )
 
 type RateLimiter struct {
-	Database               interface{ DataLimiter }
+	Database               interface{ contract_db.Datastore }
 	ConfigToken            map[string]int64
 	lockDurationSeconds    int64
 	blockDurationSeconds   int64
 	ipMaxRequestsPerSecond int64
 }
 
-func NewLimiter(db DataLimiter, configToken map[string]int64, lockDurationSeconds, blockDurationSeconds, ipMaxRequestsPerSecond int64) *RateLimiter {
+func NewLimiter(db contract_db.Datastore, configToken map[string]int64, lockDurationSeconds, blockDurationSeconds, ipMaxRequestsPerSecond int64) *RateLimiter {
 	limiter := &RateLimiter{
 		Database:               db,
 		ConfigToken:            configToken,
@@ -126,7 +127,7 @@ func (r *RateLimiter) TokenExists(token string) bool {
 	return exists
 }
 
-func (l *RateLimiter) RegisterToken(ctx context.Context) error {
+func (l *RateLimiter) RegisterPersonalizedTokens(ctx context.Context) error {
 
 	for token, limitReq := range l.ConfigToken {
 

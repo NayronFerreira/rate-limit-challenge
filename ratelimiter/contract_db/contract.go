@@ -1,4 +1,4 @@
-package ratelimiter
+package contract_db
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-type DataLimiter interface {
+type Datastore interface {
 	ZRemRangeByScore(ctx context.Context, key, min, max string) (int64, error)
 	ZCard(ctx context.Context, key string) (int64, error)
 	ZAdd(ctx context.Context, key string, members ...*redis.Z) (int64, error)
