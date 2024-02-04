@@ -39,7 +39,6 @@ func RateLimitMiddleware(next http.Handler, rateLimiter *limiter.RateLimiter) ht
 			}
 		}
 
-		// Se o token ou IP não estiver bloqueado, continue para o próximo manipulador
 		next.ServeHTTP(w, r)
 	})
 }

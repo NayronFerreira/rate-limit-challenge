@@ -32,7 +32,6 @@ func NewLimiter(db contract_db.Datastore, configToken map[string]int64, lockDura
 	return limiter
 }
 
-// CheckRateLimit verifica se uma requisição excede o limite de taxa configurado para um determinado IP ou token.
 func (l *RateLimiter) CheckRateLimit(ctx context.Context, key string, isToken bool) (bool, error) {
 	isBlocked, err := l.IsKeyBlocked(ctx, key)
 	if err != nil {
