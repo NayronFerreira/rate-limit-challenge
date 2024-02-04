@@ -13,16 +13,16 @@ import (
 )
 
 type RateLimiter struct {
-	RedisClient            *redis.Client
+	Database               interface{ DataLimiter }
 	ConfigToken            map[string]int64
 	lockDurationSeconds    int64
 	blockDurationSeconds   int64
 	ipMaxRequestsPerSecond int64
 }
 
-func NewLimiter(redisClient *redis.Client, configToken map[string]int64, lockDurationSeconds, blockDurationSeconds, ipMaxRequestsPerSecond int64) *RateLimiter {
+func NewLimiter(db DataLimiter, configToken map[string]int64, lockDurationSeconds, blockDurationSeconds, ipMaxRequestsPerSecond int64) *RateLimiter {
 	limiter := &RateLimiter{
-		RedisClient:            redisClient,
+		Database:               db,
 		ConfigToken:            configToken,
 		lockDurationSeconds:    lockDurationSeconds,
 		blockDurationSeconds:   blockDurationSeconds,
@@ -48,14 +48,13 @@ func (l *RateLimiter) CheckRateLimit(ctx context.Context, key string, isToken bo
 	minScore := "-inf"
 
 	// Remova os membros do conjunto cujo score é menor que o tempo agora
-	_, err = l.RedisClient.ZRemRangeByScore(ctx, redisKey, minScore, strconv.FormatInt(now, 10)).Result()
+	_, err = l.Database.ZRemRangeByScore(ctx, redisKey, minScore, strconv.FormatInt(now, 10))
 	if err != nil && err != redis.Nil {
 		return false, err
 	}
 
 	// Verifique o número de membros restantes no conjunto
-	cmd := l.RedisClient.ZCard(ctx, redisKey)
-	count, err := cmd.Result()
+	count, err := l.Database.ZCard(ctx, redisKey)
 	if err != nil && err != redis.Nil {
 		return false, err
 	}
@@ -67,7 +66,7 @@ func (l *RateLimiter) CheckRateLimit(ctx context.Context, key string, isToken bo
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		tokenConfigStr, err := l.RedisClient.Get(ctx, key).Result()
+		tokenConfigStr, err := l.Database.Get(ctx, key)
 		if err == redis.Nil {
 			return false, errors.New("token não encontrado")
 		}
@@ -91,10 +90,10 @@ func (l *RateLimiter) CheckRateLimit(ctx context.Context, key string, isToken bo
 		log.Printf("key: %s count: %d, reqLimit: %d \n", key, count, reqRateLimit)
 		expireTime := now + int64(l.lockDurationSeconds)
 
-		_, err := l.RedisClient.ZAdd(ctx, redisKey, &redis.Z{
+		_, err := l.Database.ZAdd(ctx, redisKey, &redis.Z{
 			Score:  float64(expireTime),
 			Member: time.Now().Format(time.RFC3339Nano),
-		}).Result()
+		})
 		if err != nil {
 			return false, err
 		}
@@ -111,11 +110,11 @@ func (l *RateLimiter) CheckRateLimit(ctx context.Context, key string, isToken bo
 }
 
 func (l *RateLimiter) BlockKey(ctx context.Context, key string) error {
-	return l.RedisClient.SetEX(ctx, "block:"+key, "", time.Second*time.Duration(l.blockDurationSeconds)).Err()
+	return l.Database.SetEX(ctx, "block:"+key, "", time.Second*time.Duration(l.blockDurationSeconds))
 }
 
 func (l *RateLimiter) IsKeyBlocked(ctx context.Context, key string) (bool, error) {
-	exists, err := l.RedisClient.Exists(ctx, "block:"+key).Result()
+	exists, err := l.Database.Exists(ctx, "block:"+key)
 	if err != nil {
 		return false, err
 	}
@@ -144,11 +143,11 @@ func (l *RateLimiter) RegisterToken(ctx context.Context) error {
 			return err
 		}
 
-		if err = l.RedisClient.Set(ctx, token, jsonData, 0).Err(); err != nil {
+		if err = l.Database.Set(ctx, token, jsonData, 0); err != nil {
 			return err
 		}
 
-		storedValue, err := l.RedisClient.Get(ctx, token).Result()
+		storedValue, err := l.Database.Get(ctx, token)
 		if err != nil {
 			return err
 		}
