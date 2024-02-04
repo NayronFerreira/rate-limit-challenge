@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/NayronFerreira/rate-limit-challenge/middleware"
-	limiter "github.com/NayronFerreira/rate-limit-challenge/ratelimiter"
+	"github.com/NayronFerreira/rate-limit-challenge/ratelimiter"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 )
@@ -100,7 +100,7 @@ func main() {
 		DB:       0,
 	})
 
-	rateLimiter := limiter.NewLimiter(redisClient, tokenConfig, int64(lockDurationSeconds), int64(blockDurationSeconds), int64(ipMaxRequestsPerSecond))
+	rateLimiter := ratelimiter.NewLimiter(redisClient, tokenConfig, int64(lockDurationSeconds), int64(blockDurationSeconds), int64(ipMaxRequestsPerSecond))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Requisição bem-sucedida!")
