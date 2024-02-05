@@ -13,28 +13,28 @@ func RateLimitMiddleware(next http.Handler, rateLimiter *limiter.RateLimiter) ht
 
 		if token != "" && rateLimiter.TokenExists(token) {
 
-			isBlocked, err := rateLimiter.CheckRateLimit(r.Context(), token, true)
+			isBlocked, err := rateLimiter.CheckRateLimitForKey(r.Context(), token, true)
 			if err != nil {
 				http.Error(w, "Internal Server Error: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 			if isBlocked {
-				http.Error(w, "Your Token is temporarily blocked for exceeding the request limit.", http.StatusTooManyRequests)
+				http.Error(w, "Your Token have reached the maximum number of requests or actions allowed within a certain time frame.", http.StatusTooManyRequests)
 				return
 			}
 
 		} else {
 
 			ip := strings.Split(r.RemoteAddr, ":")[0]
-			isBlocked, err := rateLimiter.CheckRateLimit(r.Context(), ip, false)
+			isBlocked, err := rateLimiter.CheckRateLimitForKey(r.Context(), ip, false)
 			if err != nil {
 				http.Error(w, "Internal Server Error: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 			if isBlocked {
-				http.Error(w, "Your IP is temporarily blocked for exceeding the request limit.", http.StatusTooManyRequests)
+				http.Error(w, "Your IP have reached the maximum number of requests or actions allowed within a certain time frame.", http.StatusTooManyRequests)
 				return
 			}
 		}

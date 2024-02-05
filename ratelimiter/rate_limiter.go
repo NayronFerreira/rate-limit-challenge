@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/NayronFerreira/rate-limit-challenge/ratelimiter/contract_db"
@@ -30,6 +31,49 @@ func NewLimiter(db contract_db.Datastore, configToken map[string]int64, lockDura
 		ipMaxRequestsPerSecond: ipMaxRequestsPerSecond,
 	}
 	return limiter
+}
+
+func (l *RateLimiter) CheckRateLimitForKey(ctx context.Context, key string, isToken bool) (bool, error) {
+
+	type result struct {
+		Key     string
+		Blocked bool
+		Err     error
+	}
+
+	results := make(chan result, 1)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+
+	go func(key string) {
+		defer wg.Done()
+
+		isBlocked, err := l.CheckRateLimit(ctx, key, isToken)
+
+		results <- result{Key: key, Blocked: isBlocked, Err: err}
+	}(key)
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var isBlocked bool
+	var err error
+
+	for r := range results {
+		if r.Err != nil {
+			log.Printf("Error checking rate limit for key %s: %v", r.Key, r.Err)
+			err = r.Err
+		} else if r.Blocked {
+			log.Printf("Key %s is blocked", r.Key)
+			isBlocked = true
+		}
+	}
+
+	return isBlocked, err
 }
 
 func (l *RateLimiter) CheckRateLimit(ctx context.Context, key string, isToken bool) (bool, error) {
