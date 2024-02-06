@@ -131,7 +131,7 @@ func (l *RateLimiter) CheckRateLimit(ctx context.Context, key string, isToken bo
 	}
 
 	if count < int64(reqRateLimit) {
-		log.Printf("key: %s count: %d, reqLimit: %d \n", key, count, reqRateLimit)
+		log.Printf("key: %s count: %d, reqLimit: %d \n", key, count+1, reqRateLimit)
 		expireTime := now + int64(l.lockDurationSeconds)
 
 		_, err := l.Database.ZAdd(ctx, redisKey, &redis.Z{
