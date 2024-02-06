@@ -50,7 +50,7 @@ func (l *RateLimiter) CheckRateLimitForKey(ctx context.Context, key string, isTo
 	go func(key string) {
 		defer wg.Done()
 
-		isBlocked, err := l.CheckRateLimit(ctx, key, isToken)
+		isBlocked, err := l.IsRateLimitExceeded(ctx, key, isToken)
 
 		results <- result{Key: key, Blocked: isBlocked, Err: err}
 	}(key)
@@ -68,7 +68,6 @@ func (l *RateLimiter) CheckRateLimitForKey(ctx context.Context, key string, isTo
 			log.Printf("Error checking rate limit for key %s: %v", r.Key, r.Err)
 			err = r.Err
 		} else if r.Blocked {
-			log.Printf("Key %s is blocked", r.Key)
 			isBlocked = true
 		}
 	}
@@ -76,7 +75,7 @@ func (l *RateLimiter) CheckRateLimitForKey(ctx context.Context, key string, isTo
 	return isBlocked, err
 }
 
-func (l *RateLimiter) CheckRateLimit(ctx context.Context, key string, isToken bool) (bool, error) {
+func (l *RateLimiter) IsRateLimitExceeded(ctx context.Context, key string, isToken bool) (bool, error) {
 	isBlocked, err := l.IsKeyBlocked(ctx, key)
 	if err != nil {
 		return false, err
