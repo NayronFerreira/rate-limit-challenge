@@ -3,6 +3,7 @@ package ratelimiter
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -72,4 +73,24 @@ func TestRegisterPersonalizedTokens(t *testing.T) {
 
 	err := db.RegisterPersonalizedTokens(ctx)
 	assert.NoError(t, err)
+}
+
+func TestRegisterPersonalizedTokens_SetError(t *testing.T) {
+	mockRedis := new(database.MockRedisClient)
+	db := NewLimiter(mockRedis, map[string]int64{"custom_token": 5}, 1, 5, 3)
+	ctx := context.Background()
+
+	tokenData := struct {
+		Token    string `json:"token"`
+		LimitReq int64  `json:"limitReq"`
+	}{
+		Token:    "custom_token",
+		LimitReq: 5,
+	}
+	jsonData, _ := json.Marshal(tokenData)
+
+	mockRedis.On("Set", ctx, "custom_token", jsonData, time.Duration(0)).Return(errors.New("set error"))
+
+	err := db.RegisterPersonalizedTokens(ctx)
+	assert.Error(t, err)
 }
