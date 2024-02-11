@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NayronFerreira/rate-limit-challenge/config"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
@@ -28,6 +29,16 @@ func setup() (*RedisDataLimiter, func()) {
 	return limiter, func() {
 		mr.Close()
 	}
+}
+
+func TestNewRedisClient(t *testing.T) {
+	cfg := &config.Config{RedisURL: "localhost:6379"}
+	client := NewRedisClient(cfg)
+
+	assert.NotNil(t, client)
+	assert.Equal(t, cfg.RedisURL, client.Options().Addr)
+	assert.Equal(t, "", client.Options().Password)
+	assert.Equal(t, 0, client.Options().DB)
 }
 
 func TestZAdd(t *testing.T) {

@@ -10,6 +10,26 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+func TestZRemRangeByScoreMock(t *testing.T) {
+	mockClient := new(MockRedisClient)
+	ctx := context.Background()
+	key := "test_key"
+	min := "-inf"
+	max := "100"
+
+	// Configura o comportamento esperado do mock
+	mockClient.On("ZRemRangeByScore", ctx, key, min, max).Return(int64(2), nil)
+
+	// Chama a função no mock
+	removed, err := mockClient.ZRemRangeByScore(ctx, key, min, max)
+
+	// Verifica se o retorno é o esperado
+	assert.NoError(t, err, "Erro deveria ser nil")
+	assert.Equal(t, int64(2), removed, "A quantidade de elementos removidos deve ser igual a 2")
+
+	// Verifica se todas as chamadas configuradas foram feitas
+	mockClient.AssertExpectations(t)
+}
 func TestZCardMock(t *testing.T) {
 	mockClient := new(MockRedisClient)
 	mockClient.On("ZCard", mock.Anything, "key1").Return(int64(3), nil)
