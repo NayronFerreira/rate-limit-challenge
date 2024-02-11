@@ -20,10 +20,6 @@ type RedisDataLimiter struct {
 	client *redis.Client
 }
 
-// func NewRedisDataLimiter(client contract_db.Datastore) *RedisDataLimiter {
-// 	return &RedisDataLimiter{client: client}
-// }
-
 func NewRedisDataLimiter(client *redis.Client) *RedisDataLimiter {
 	return &RedisDataLimiter{client: client}
 }
