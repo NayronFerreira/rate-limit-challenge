@@ -44,7 +44,10 @@ func startServer(cfg *config.Config, rateLimiter *ratelimiter.RateLimiter) {
 	setupRoutes(mux)
 
 	rateLimitMiddleware := middleware.RateLimitMiddleware(mux, rateLimiter)
-	srv := server.New(cfg.WebPort, rateLimitMiddleware)
+
+	loggingMiddleware := middleware.LoggingMiddleware(rateLimitMiddleware)
+
+	srv := server.New(cfg.WebPort, loggingMiddleware)
 
 	go func() {
 		log.Println("Servidor HTTP iniciado na porta:", cfg.WebPort)
@@ -55,7 +58,6 @@ func startServer(cfg *config.Config, rateLimiter *ratelimiter.RateLimiter) {
 
 	server.WaitForShutdown(srv)
 }
-
 func setupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/", handler.RootHandler)
 }

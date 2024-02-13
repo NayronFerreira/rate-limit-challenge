@@ -4,7 +4,7 @@ O Rate Limit Challenge é uma aplicação web projetada para demonstrar a implem
 
 ## Estrutura do Projeto
 
-A aplicação é dividida em vários pacotes, organizados da seguinte forma:
+A aplicação é dividida em alguns pacotes, organizados da seguinte forma:
 
 - **main.go**: O ponto de entrada da aplicação. Configura e inicia o servidor web, juntamente com o sistema de limitação de taxa.
 
@@ -19,7 +19,7 @@ limitação de taxa e detalhes do servidor Redis.
 
 - **ratelimiter**: Implementa a lógica de limitação de taxa, incluindo a verificação e registro de tokens personalizados e a limitação baseada em IP.
 
-handler: Define os manipuladores de rotas HTTP para a aplicação.
+- **handler**: Define os manipuladores de rotas HTTP para a aplicação.
 
 ## Executando a Aplicação Localmente com Docker Compose
 
@@ -43,7 +43,34 @@ docker-compose up --build
 ```
 4. A aplicação estará acessível em http://localhost:8080.
 
-## TOKENS
+## Tokens Personalizaveis
+
+Assim que a aplicação é iniciada, no pacote config são registados 5 tokens personalizaveis, sendo eles:
+
+**TOKEN_1**
+**TOKEN_2**
+**TOKEN_3**
+**TOKEN_4**
+**TOKEN_5**
+
+No arquivo **.env** na raiz do projeto, é possivel pernalizar as configurações dos tokens registrados acima, controlando a quantidade de requisições que cada um poderá fazer, por segundo.
+
+Além da quantidade de requisições por segundo de cada token, também conseguimos controlar a quantidade de requisições por IP, quando o client não possui um token registrado no header.
+
+As variávereis LOCK_DURATION_SECONDS e BLOCK_DURATION_SECONDS refletem para todos os tokens e IP's. A LOCK_DURATION_SECONDS significa o range de tempo que usaremos para controlar a quantidade de requisições e o BLOCK_DURATION_SECONDS é o tempo que determinado IP ou Token ficará impossibilitado de realizar chamadas na API.
+
+```bash
+TOKEN_1_MAX_REQUESTS_PER_SECOND=6
+TOKEN_2_MAX_REQUESTS_PER_SECOND=12
+TOKEN_3_MAX_REQUESTS_PER_SECOND=18
+TOKEN_4_MAX_REQUESTS_PER_SECOND=24
+TOKEN_5_MAX_REQUESTS_PER_SECOND=500
+
+IP_MAX_REQUESTS_PER_SECOND=3
+
+LOCK_DURATION_SECONDS=1
+BLOCK_DURATION_SECONDS=60
+```
 
 ## Exemplos de Uso
 Para testar o limitador de taxa, você pode fazer solicitações HTTP para o servidor. Por exemplo, você pode usar o comando curl para fazer uma solicitação GET: curl http://localhost:8080 -H "API_KEY: TOKEN_1".
