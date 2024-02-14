@@ -8,8 +8,7 @@ A aplicação é dividida em alguns pacotes, organizados da seguinte forma:
 
 - **main.go**: O ponto de entrada da aplicação. Configura e inicia o servidor web, juntamente com o sistema de limitação de taxa.
 
-- **config**: Carrega as configurações da aplicação a partir de variáveis de ambiente ou arquivos .env, incluindo configurações para a 
-limitação de taxa e detalhes do servidor Redis.
+- **config**: Carrega as configurações da aplicação a partir de variáveis de ambiente ou arquivos .env, incluindo configurações para a limitação de taxa e detalhes do servidor Redis.
 
 - **infra/**: Contém infraestruturas auxiliares, como o servidor web (web) e a conexão com o banco de dados Redis (database).
 
@@ -41,7 +40,7 @@ Depois de instalar o Docker e o Docker Compose, siga os passos abaixo para execu
 ```bash
 docker-compose up --build
 ```
-4. A aplicação estará acessível em http://localhost:8080.
+4. A aplicação estará acessível localemnte em http://localhost:8080.
 
 ## Tokens Personalizaveis
 
@@ -55,9 +54,9 @@ Assim que a aplicação é iniciada, no pacote config são registados 5 tokens p
 
 No arquivo **.env** na raiz do projeto, é possivel pernalizar as configurações dos tokens registrados acima, controlando a quantidade de requisições que cada um poderá fazer, por segundo.
 
-Além da quantidade de requisições por segundo de cada token, também conseguimos controlar a quantidade de requisições por IP, quando o client não possui um token registrado no header.
+Além da quantidade de requisições por segundo de cada token, também é possivel controlar a quantidade de requisições por IP, quaque é o parametro usado quando o client não possui um token registrado no header.
 
-As variávereis LOCK_DURATION_SECONDS e BLOCK_DURATION_SECONDS refletem para todos os tokens e IP's. A LOCK_DURATION_SECONDS significa o range de tempo que usaremos para controlar a quantidade de requisições e o BLOCK_DURATION_SECONDS é o tempo que determinado IP ou Token ficará impossibilitado de realizar chamadas na API.
+As configurações nas variávereis **LOCK_DURATION_SECONDS** e **BLOCK_DURATION_SECONDS** refletem para todos os tokens e IP's. A **LOCK_DURATION_SECONDS** significa o range de tempo que usaremos para controlar a quantidade de requisições e o **BLOCK_DURATION_SECONDS** é o tempo determinado que o IP ou Token ficará impossibilitado de realizar chamadas na API.
 
 ```bash
 TOKEN_1_MAX_REQUESTS_PER_SECOND=6
@@ -73,37 +72,29 @@ BLOCK_DURATION_SECONDS=60
 ```
 
 ## Exemplos de Uso
-Para testar o limitador de taxa, você pode fazer solicitações HTTP para o servidor. Por exemplo, você pode usar o comando curl para fazer uma solicitação GET: curl http://localhost:8080 -H "API_KEY: TOKEN_1".
+Para testar o limitador de taxa, você pode fazer solicitações HTTP para o servidor. Por exemplo, você pode usar o comando curl para fazer uma solicitação GET: curl `http://localhost:8080 -H "API_KEY: TOKEN_1"`.
 
 Se você fizer mais solicitações do que o limite permitido em um determinado período de tempo, o servidor responderá com um código de status HTTP 429 (Too Many Requests).
 
 ## Executando Testes de Carga com Fortio
 Primeiramente, certifique-se de que o serviço Fortio esteja rodando, conforme configurado no `docker-compose.yml`. A aplicação e o serviço Fortio devem estar operacionais.
 
-**Exemplo 1: Teste Simples de Carga**
+**Exemplo 1: Teste de Carga**
 Para executar um teste simples de carga, onde você envia requisições para a URL base da sua aplicação, use o seguinte comando:
 
 ```bash
-docker exec -it <fortio_container_id> fortio load -c 5 -qps 10 -t 30s http://app:8080/
+docker exec -it <container_id> fortio load -c 2 -qps 12 -t 5s -H "API_KEY: TOKEN_2" http://app:8080
 ```
 
 Neste comando:
 
-1. -c 5 especifica que 5 conexões concorrentes serão usadas.
-2. -qps 10 limita as requisições por segundo a 10. Se você quiser testar sem limites, pode usar -qps 0.
-3. -t 30s define a duração do teste para 30 segundos.
-http://app:8080/ é a URL onde o Fortio enviará as requisições. Substitua app pelo nome do serviço da aplicação, se for diferente em seu `docker-compose.yml`.
-
-**Exemplo 2: Teste de Carga com Limitação de Taxa**
-Para simular um cenário onde as requisições excedem a limitação de taxa configurada, você pode aumentar o número de requisições por segundo (QPS) para um valor acima do limite permitido pela sua aplicação:
-
-```bash
-docker exec -it <fortio_container_id> fortio load -c 10 -qps 100 -t 1m http://app:8080/
-```
-Neste comando:
-
-1. -c 10 aumenta o número de conexões concorrentes para 10.
-2. -qps 100 tenta enviar 100 requisições por segundo, provavelmente excedendo a maioria das configurações padrão de limitação de taxa.
+1. <container_id> substitua esse valor pelo id do container que subiu localmente com o comando docker-compose up build. Voce encontrará essa informação rondando o comando docker container ps.
+2. -c 2 especifica que 2 conexões concorrentes serão usadas.
+3. -qps 12 limita as requisições por segundo a 12. Se você quiser testar sem limites, pode usar -qps 0.
+4. -t 5s define a duração do teste para 5 segundos.
+5. -H informa que você passará algo no Heager.
+6. "API_KEY: TOKEN_2" é a chave/valor passado no Header.
+7. http://app:8080/ é a URL onde o Fortio enviará as requisições. Substitua app pelo nome do serviço da aplicação, se for diferente em seu `docker-compose.yml`.
 
 **Interpretando Resultados**
 Após a execução do teste, o Fortio fornecerá um relatório detalhado, incluindo o número de requisições realizadas, a taxa de sucesso, tempos de resposta (latência), e outras métricas relevantes. Esses resultados ajudarão a entender o comportamento da sua aplicação sob carga e como a limitação de taxa afeta a experiência do usuário.
