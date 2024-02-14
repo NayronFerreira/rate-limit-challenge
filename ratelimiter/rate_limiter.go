@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NayronFerreira/rate-limit-challenge/ratelimiter/contract_db"
+	"github.com/NayronFerreira/rate-limit-challenge/infra/database/contract_db"
 	"github.com/go-redis/redis/v8"
 )
 
