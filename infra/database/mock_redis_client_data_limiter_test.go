@@ -17,17 +17,13 @@ func TestZRemRangeByScoreMock(t *testing.T) {
 	min := "-inf"
 	max := "100"
 
-	// Configura o comportamento esperado do mock
 	mockClient.On("ZRemRangeByScore", ctx, key, min, max).Return(int64(2), nil)
 
-	// Chama a função no mock
 	removed, err := mockClient.ZRemRangeByScore(ctx, key, min, max)
 
-	// Verifica se o retorno é o esperado
 	assert.NoError(t, err, "Erro deveria ser nil")
 	assert.Equal(t, int64(2), removed, "A quantidade de elementos removidos deve ser igual a 2")
 
-	// Verifica se todas as chamadas configuradas foram feitas
 	mockClient.AssertExpectations(t)
 }
 func TestZCardMock(t *testing.T) {
@@ -41,15 +37,13 @@ func TestZCardMock(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
-// Escreva os outros testes da mesma maneira...
-
 func TestZAddMock(t *testing.T) {
 	mockClient := new(MockRedisClient)
 
 	members := []*redis.Z{{Score: 1, Member: "member1"}}
 	mockClient.On("ZAdd", mock.Anything, "key1", members).Return(int64(1), nil)
 
-	added, err := mockClient.ZAdd(context.Background(), "key1", members...) // Chamada correta no limiter.
+	added, err := mockClient.ZAdd(context.Background(), "key1", members...)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), added)
 
